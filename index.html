@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#1A1B2F" />
+    <title>Daddy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Century+Gothic&display=swap');
+      
+      /* Century Gothic isn't a standard Google Font, so we use a close alternative or system stack */
+      body {
+        font-family: 'Century Gothic', 'Tw Cen MT', Futura, 'Muli', sans-serif;
+        overscroll-behavior-y: none; /* Prevents pull-to-refresh on mobile */
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Hide scrollbar for cleaner UI */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      /* iOS Safe Area handling */
+      .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              nexus: {
+                midnight: '#1A1B2F', 
+                mint: '#2AF598',     
+                slate: '#F1F4F9',    
+                coral: '#FF6B6B',    
+                
+                // Mapping for compatibility
+                dark: '#1A1B2F',     
+                card: '#252640',     
+                primary: '#1A1B2F',  
+                accent: '#2AF598',   
+                surface: '#F1F4F9',
+                
+                'midnight-hover': '#23243E',
+                'mint-hover': '#22C57A',
+              }
+            },
+            fontFamily: {
+              sans: ['"Century Gothic"', 'Tw Cen MT', 'Futura', 'sans-serif'],
+            },
+            animation: {
+              'fade-in-up': 'fadeInUp 0.3s ease-out',
+              'fade-in-down': 'fadeInDown 0.3s ease-out',
+            },
+            keyframes: {
+              fadeInUp: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              fadeInDown: {
+                '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.39.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-nexus-slate dark:bg-nexus-dark text-slate-900 dark:text-slate-100 transition-colors duration-200 h-full overflow-hidden fixed w-full select-none">
+    <div id="root" class="h-full w-full"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
