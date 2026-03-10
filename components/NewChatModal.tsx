@@ -187,7 +187,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ currentUserId, onClo
                 <input 
                   autoFocus
                   type="text" 
-                  placeholder={step === 'group_participants' ? "Add people..." : "Name, Phone or Email..."}
+                  placeholder={step === 'group_participants' ? "Add people..." : "Name or Email..."}
                   value={query}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="w-full bg-nexus-slate dark:bg-gray-800 rounded-xl py-2.5 pl-10 pr-4 outline-none focus:ring-2 focus:ring-nexus-mint dark:text-white transition-all"
