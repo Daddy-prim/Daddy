@@ -34,22 +34,39 @@ export default function App() {
 
   // 1. Auth Initialization
   useEffect(() => {
-    const customToken = localStorage.getItem('custom_auth_token');
-    const customUserStr = localStorage.getItem('custom_user');
-    
-    if (customToken && customUserStr) {
+    const initAuth = async () => {
       try {
-        const user = JSON.parse(customUserStr);
-        setSession({ user });
-        setCurrentUser(user);
-        if (user.preferences?.theme === 'dark') {
-          setDarkMode(true);
+        const user = await getCurrentUser();
+        if (user) {
+          setSession({ user });
+          setCurrentUser(user);
+          if (user.preferences?.theme === 'dark') {
+            setDarkMode(true);
+          }
         }
       } catch (e) {
-        console.error('Failed to parse user', e);
+        console.error('Failed to load user', e);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const user = await getCurrentUser();
+        setSession({ user });
+        setCurrentUser(user);
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setCurrentUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // 2. Load User Data (Chats)
@@ -226,20 +243,23 @@ export default function App() {
     // Send to DB
     await sendMessageToDb(selectedChatId, session.user.id, text, scheduledDate);
 
-    // AI Analysis DISABLED as per request
-    /*
     if (!scheduledDate) {
+      const { detectActionItem } = await import('./services/geminiService');
       const analysis = await detectActionItem(text);
       if (analysis.isAction) {
-        // ... action item logic
+        setActionItems(prev => [...prev, {
+          id: Date.now().toString(),
+          title: analysis.title || 'New Action Item',
+          dueDate: analysis.dateTime ? new Date(analysis.dateTime) : undefined,
+          isCompleted: false,
+          chatId: selectedChatId
+        }]);
       }
     }
-    */
   };
 
   const handleLogout = async () => {
-    localStorage.removeItem('custom_auth_token');
-    localStorage.removeItem('custom_user');
+    await supabase.auth.signOut();
     setSession(null);
     setCurrentUser(null);
     setChats([]);
@@ -306,19 +326,13 @@ export default function App() {
   if (loading) return <div className="h-screen w-screen flex items-center justify-center bg-nexus-slate dark:bg-nexus-dark"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nexus-mint"></div></div>;
 
   if (!session) {
-    return <AuthScreen onAuthSuccess={() => {
-      const customToken = localStorage.getItem('custom_auth_token');
-      const customUserStr = localStorage.getItem('custom_user');
-      if (customToken && customUserStr) {
-        try {
-          const user = JSON.parse(customUserStr);
-          setSession({ user });
-          setCurrentUser(user);
-        } catch (e) {
-          console.error(e);
-        }
+    return <AuthScreen onAuthSuccess={async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        setSession({ user });
+        setCurrentUser(user);
+        loadChats();
       }
-      loadChats();
     }} />;
   }
 
@@ -390,29 +404,44 @@ export default function App() {
             </div>
           </div>
 
-          {/* TABS (All, Personal, etc - Optional, keeping simple for now) */}
-          {/* <div className="px-4 flex gap-6 border-b border-gray-100 dark:border-black overflow-x-auto no-scrollbar">
-             {['All', 'Personal', 'Work', 'Unread'].map(tab => (
-               <button key={tab} className="py-3 text-sm font-medium text-gray-500 hover:text-[#3390ec] whitespace-nowrap">
-                 {tab}
-               </button>
-             ))}
-          </div> */}
+          {/* TABS */}
+          <div className="px-4 flex gap-6 border-b border-gray-100 dark:border-black overflow-x-auto no-scrollbar">
+             {['Priority', 'Groups', 'Actions'].map(tab => {
+               const tabValue = tab.toLowerCase() as TabType;
+               return (
+                 <button 
+                   key={tab} 
+                   onClick={() => setActiveTab(tabValue)}
+                   className={`py-3 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === tabValue ? 'text-[#3390ec] border-b-2 border-[#3390ec]' : 'text-gray-500 hover:text-[#3390ec]'}`}
+                 >
+                   {tab}
+                 </button>
+               );
+             })}
+          </div>
 
-          {/* CHAT LIST */}
+          {/* CHAT LIST / ACTIONS LIST */}
           <div className="flex-1 overflow-y-auto no-scrollbar">
-            {/* Saved Messages Pinned (Visual Mock) */}
-            {/* <div className="hover:bg-[#f4f4f5] dark:hover:bg-[#2c2c2e] cursor-pointer p-2 mx-2 rounded-xl transition-colors flex items-center gap-3">
-               <div className="w-12 h-12 rounded-full bg-[#3390ec] flex items-center justify-center text-white">
-                 <Pin size={20} />
-               </div>
-               <div className="flex-1 border-b border-transparent dark:border-black pb-3 pt-1">
-                 <h3 className="font-medium text-black dark:text-white">Saved Messages</h3>
-                 <p className="text-gray-500 text-sm truncate">Storage</p>
-               </div>
-            </div> */}
-
-            {getFilteredAndSortedChats().map(chat => {
+            {activeTab === 'actions' ? (
+              <div className="p-4">
+                {actionItems.length === 0 ? (
+                  <div className="text-center text-gray-500 mt-10">No action items detected yet.</div>
+                ) : (
+                  actionItems.map(item => (
+                    <ActionCard 
+                      key={item.id} 
+                      item={item} 
+                      onComplete={toggleActionComplete} 
+                      onGoToChat={(chatId) => {
+                        setSelectedChatId(chatId);
+                        setActiveTab('priority');
+                      }} 
+                    />
+                  ))
+                )}
+              </div>
+            ) : (
+              getFilteredAndSortedChats().map(chat => {
                const lastMsg = chat.messages[chat.messages.length - 1];
                const isSelected = selectedChatId === chat.id;
                
@@ -474,7 +503,8 @@ export default function App() {
                    </div>
                  </div>
                );
-            })}
+            })
+           )}
           </div>
 
           {/* Floating Action Button (Telegram Style) */}

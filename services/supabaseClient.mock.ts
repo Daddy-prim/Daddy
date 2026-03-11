@@ -131,6 +131,10 @@ export const supabase = {
       localStorage.removeItem(SESSION_KEY);
       return { error: null };
     },
+    getUser: async () => {
+      const sessionUser = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+      return { data: { user: sessionUser }, error: null };
+    },
     onAuthStateChange: (callback: any) => {
       const handler = () => {
         const sessionUser = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
@@ -166,6 +170,46 @@ export const supabase = {
     };
   },
   removeChannel: (channel: any) => {
+  },
+  from: (table: string) => {
+    return {
+      select: (columns: string) => {
+        return {
+          eq: (column: string, value: any) => {
+            return {
+              single: async () => {
+                await delay(200);
+                const records = getStore(`prime_${table}`);
+                const record = records.find((r: any) => r[column] === value);
+                return { data: record || null, error: null };
+              }
+            };
+          }
+        };
+      },
+      update: (updates: any) => {
+        return {
+          eq: async (column: string, value: any) => {
+            await delay(200);
+            const records = getStore(`prime_${table}`);
+            const idx = records.findIndex((r: any) => r[column] === value);
+            if (idx !== -1) {
+              records[idx] = { ...records[idx], ...updates };
+              setStore(`prime_${table}`, records);
+              
+              // Update session if it's the current user
+              const sessionUser = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+              if (table === 'users' && sessionUser && sessionUser.id === value) {
+                localStorage.setItem(SESSION_KEY, JSON.stringify(records[idx]));
+                window.dispatchEvent(new Event('storage'));
+              }
+              return { data: records[idx], error: null };
+            }
+            return { data: null, error: { message: 'Record not found' } };
+          }
+        };
+      }
+    };
   }
 };
 

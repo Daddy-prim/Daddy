@@ -7,8 +7,8 @@
 // 3. Comment out the mock export below and uncomment the real export
 
 // --- MOCK BACKEND (Default) ---
-// export * from './supabaseClient.mock';
+export * from './supabaseClient.mock';
 
 // --- REAL BACKEND ---
-export * from './supabaseClient.real';
+// export * from './supabaseClient.real';
 

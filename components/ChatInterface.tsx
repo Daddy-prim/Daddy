@@ -259,6 +259,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onBack, onSe
               </div>
 
               <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                <button onClick={handleSummarize} disabled={isSummarizing} className="p-2.5 hover:bg-gray-100 dark:hover:bg-[#2c2c2e] rounded-full transition-colors text-[#3390ec]" title="Summarize Chat">
+                  {isSummarizing ? <div className="w-5 h-5 border-2 border-[#3390ec] border-t-transparent rounded-full animate-spin" /> : <Sparkles size={22} />}
+                </button>
                 <button onClick={() => setIsSearching(true)} className="p-2.5 hover:bg-gray-100 dark:hover:bg-[#2c2c2e] rounded-full transition-colors">
                   <Search size={22} />
                 </button>
@@ -278,6 +281,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onBack, onSe
             </>
           )}
         </div>
+
+        {/* SUMMARY BANNER */}
+        {summary && (
+          <div className="bg-blue-50 dark:bg-[#2b5278]/20 border-b border-blue-100 dark:border-[#2b5278]/50 p-3 flex items-start gap-3 relative z-10">
+            <Sparkles className="text-[#3390ec] shrink-0 mt-0.5" size={18} />
+            <div className="flex-1">
+              <h4 className="text-sm font-bold text-[#3390ec] mb-1">AI Summary</h4>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{summary}</p>
+            </div>
+            <button onClick={() => setSummary(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
         {/* MESSAGES AREA */}
         <div 

@@ -1,8 +1,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Message } from "../types";
 
-// Initialize the API client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+const getAiClient = () => {
+  if (!ai) {
+    const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("Gemini API Key is missing. AI features will be disabled.");
+      return null;
+    }
+    ai = new GoogleGenAI({ apiKey });
+  }
+  return ai;
+};
 
 const MODEL_NAME = 'gemini-3-flash-preview';
 
@@ -10,6 +21,9 @@ const MODEL_NAME = 'gemini-3-flash-preview';
  * Summarizes a list of messages using Gemini.
  */
 export const summarizeChat = async (messages: Message[]): Promise<string> => {
+  const client = getAiClient();
+  if (!client) return "AI summary is currently unavailable (Missing API Key).";
+  
   if (messages.length === 0) return "No messages to summarize.";
 
   const transcript = messages
@@ -17,7 +31,7 @@ export const summarizeChat = async (messages: Message[]): Promise<string> => {
     .join('\n');
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: MODEL_NAME,
       contents: `You are a helpful assistant for a messaging app called Nexus. 
       Summarize the following chat conversation into a concise paragraph (max 3 sentences), highlighting key points and decisions.
@@ -37,8 +51,11 @@ export const summarizeChat = async (messages: Message[]): Promise<string> => {
  * Analyzes a message to see if it contains an action item (date/time/location/recurrence).
  */
 export const detectActionItem = async (text: string): Promise<{ isAction: boolean; title?: string; dateTime?: string; recurrence?: string; location?: string }> => {
+  const client = getAiClient();
+  if (!client) return { isAction: false };
+
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: MODEL_NAME,
       contents: `Analyze the following message for action items. Look for intent to perform a task or attend an event.
       Extract the Date/Time, Recurrence (e.g., 'every week'), and Location if present.
