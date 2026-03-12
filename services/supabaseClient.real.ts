@@ -6,6 +6,21 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');
 
+// --- AUTH FUNCTIONS ---
+export const signInWithOtp = async ({ email }: { email: string }) => {
+  return await supabase.auth.signInWithOtp({
+    email,
+  });
+};
+
+export const verifyOtp = async ({ email, token, type }: { email: string, token: string, type: string }) => {
+  return await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: type as any
+  });
+};
+
 // --- BROWSER NOTIFICATIONS ---
 export const requestNotificationPermission = async () => {
   if (!("Notification" in window)) return false;

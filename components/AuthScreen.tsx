@@ -153,7 +153,7 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
   };
 
   return (
-    <div className="flex h-screen w-full bg-white dark:bg-nexus-dark overflow-hidden">
+    <main className="flex h-screen w-full bg-white dark:bg-nexus-dark overflow-hidden">
       {/* LEFT SIDE: IMAGE (Desktop Only) */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-nexus-midnight items-center justify-center overflow-hidden">
          <div className="absolute inset-0">
@@ -179,7 +179,7 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
       </div>
 
       {/* RIGHT SIDE: FORM */}
-      <div className="w-full lg:w-1/2 flex flex-col relative bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-nexus-dark dark:via-gray-900 dark:to-black">
+      <section className="w-full lg:w-1/2 flex flex-col relative bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-nexus-dark dark:via-gray-900 dark:to-black">
          {step > 1 && step < 4 && (
            <div className="absolute top-6 left-6 z-20">
               <button 
@@ -350,7 +350,7 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
 
             </div>
          </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };

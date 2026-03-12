@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://daddy-liart.vercel.app/sitemap.xml
