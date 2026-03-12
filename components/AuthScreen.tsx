@@ -107,11 +107,12 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
       // Update the users table
       const { error } = await supabase
         .from('users')
-        .update({ 
+        .upsert({ 
+          id: user.id,
+          email: user.email,
           full_name: displayName,
           avatar: profilePic
-        })
-        .eq('id', user.id);
+        });
       
       if (error) throw error;
       
@@ -223,9 +224,9 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
                {step === 2 && (
                  <form onSubmit={handleRequestOtp} className="space-y-8">
                    <div className="text-center mb-8">
-                     <h2 className="text-3xl font-bold text-nexus-midnight dark:text-white mb-3">Enter your email</h2>
+                     <h2 className="text-3xl font-bold text-nexus-midnight dark:text-white mb-3">Log in or sign up</h2>
                      <p className="text-gray-500 dark:text-gray-400">
-                       Daddy will send a secure 6-digit code to verify your email address.
+                       Enter your email to continue. Daddy will send a secure 6-digit code to verify your account.
                      </p>
                    </div>
 

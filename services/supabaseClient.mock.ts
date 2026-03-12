@@ -67,30 +67,32 @@ export const supabase = {
       }
       return { data: null, error: { message: 'Invalid credentials' } };
     },
-    signInWithOtp: async ({ phone }: any) => {
+    signInWithOtp: async ({ phone, email }: any) => {
       await delay(800);
-      console.log(`[Mock Supabase] Sending OTP to ${phone}...`);
-      // In a real app, this sends an SMS via Twilio.
+      const identifier = phone || email;
+      console.log(`[Mock Supabase] Sending OTP to ${identifier}...`);
+      // In a real app, this sends an SMS via Twilio or Email.
       // For mock, we just acknowledge the request.
       // We can store a temp OTP if we want to be strict, but for now we'll accept '123456'
       return { data: { message: "OTP sent" }, error: null };
     },
-    verifyOtp: async ({ phone, token, type }: any) => {
+    verifyOtp: async ({ phone, email, token, type }: any) => {
       await delay(800);
       if (token !== '123456') {
         return { data: null, error: { message: 'Invalid OTP code' } };
       }
 
       const users = getStore(USERS_KEY);
-      let user = users.find((u: any) => u.phone === phone);
+      const identifier = phone || email;
+      let user = users.find((u: any) => (phone && u.phone === phone) || (email && u.email === email));
 
       if (!user) {
         // Create new user if not exists (Sign Up via OTP)
         user = {
           id: 'u_' + Date.now(),
-          email: '', // No email for phone-only auth
-          phone,
-          full_name: 'New User',
+          email: email || '', 
+          phone: phone || '',
+          full_name: '', // Empty full_name so AuthScreen prompts for profile setup
           status: 'online',
           statusMessage: 'Hey there! I am using Daddy.',
           preferences: { dmSound: 'default', groupSound: 'default', mediaAutoDownload: 'wifi', imageQuality: 'standard' }
@@ -186,6 +188,26 @@ export const supabase = {
             };
           }
         };
+      },
+      upsert: async (record: any) => {
+        await delay(200);
+        const records = getStore(`prime_${table}`);
+        const idx = records.findIndex((r: any) => r.id === record.id);
+        if (idx !== -1) {
+          records[idx] = { ...records[idx], ...record };
+        } else {
+          records.push(record);
+        }
+        setStore(`prime_${table}`, records);
+        
+        // Update session if it's the current user
+        const sessionUser = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+        if (table === 'users' && sessionUser && sessionUser.id === record.id) {
+          const updatedUser = idx !== -1 ? records[idx] : record;
+          localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
+          window.dispatchEvent(new Event('storage'));
+        }
+        return { data: record, error: null };
       },
       update: (updates: any) => {
         return {
