@@ -19,7 +19,12 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
   const [activeTab, setActiveTab] = useState<TabType>('priority');
   const [sortOption, setSortOption] = useState<SortOption>('time');
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -36,7 +41,12 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const user = await getCurrentUser();
+        // Ensure the splash screen shows for at least 1.5 seconds for a smooth app launch experience
+        const [user] = await Promise.all([
+          getCurrentUser(),
+          new Promise(resolve => setTimeout(resolve, 1500))
+        ]);
+        
         if (user) {
           setSession({ user });
           setCurrentUser(user);
@@ -323,7 +333,19 @@ export default function App() {
 
   // --- RENDERING ---
 
-  if (loading) return <div className="h-screen w-screen flex items-center justify-center bg-nexus-slate dark:bg-nexus-dark"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nexus-mint"></div></div>;
+  if (loading) {
+    return (
+      <div className={`h-screen w-screen flex flex-col items-center justify-between bg-white dark:bg-nexus-dark ${darkMode ? 'dark' : ''}`}>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <Logo className="w-28 h-28 animate-pulse" />
+        </div>
+        <div className="pb-12 flex flex-col items-center animate-fade-in-up">
+          <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-widest uppercase mb-1">from</span>
+          <span className="text-xl font-bold tracking-widest text-nexus-primary dark:text-white uppercase">Daddy</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!session) {
     return <AuthScreen onAuthSuccess={async () => {

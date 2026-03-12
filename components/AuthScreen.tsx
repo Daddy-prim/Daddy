@@ -158,11 +158,10 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
       <div className="hidden lg:flex lg:w-1/2 relative bg-nexus-midnight items-center justify-center overflow-hidden">
          <div className="absolute inset-0">
             <img 
-              src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80" 
-              alt="Community Connection" 
-              className="w-full h-full object-cover opacity-60 mix-blend-overlay"
+              src="/background.svg" 
+              alt="Daddy Background" 
+              className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-tr from-nexus-midnight via-nexus-midnight/80 to-purple-900/40" />
          </div>
          <div className="relative z-10 p-16 max-w-2xl text-white">
             <div className="mb-8 flex items-center gap-4">
