@@ -47,14 +47,21 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const user = await getCurrentUser();
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (user) {
-          setSession({ user });
-          setCurrentUser(user);
-          if (user.preferences?.theme === 'dark') {
-            setDarkMode(true);
-          }
+        if (session?.user) {
+          setSession(session);
+          setCurrentUser(session.user);
+          
+          // Fetch profile in background to not block initial render
+          supabase.from('users').select('*').eq('id', session.user.id).single().then(({ data: userProfile }) => {
+            if (userProfile) {
+              setCurrentUser(userProfile);
+              if (userProfile.preferences?.theme === 'dark') {
+                setDarkMode(true);
+              }
+            }
+          });
         }
       } catch (e) {
         console.error('Failed to load user', e);
@@ -67,9 +74,10 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        setSession(session);
+        setCurrentUser(session.user);
         const user = await getCurrentUser();
-        setSession({ user });
-        setCurrentUser(user);
+        if (user) setCurrentUser(user);
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         setCurrentUser(null);

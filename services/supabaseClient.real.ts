@@ -7,17 +7,17 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');
 
 // --- AUTH FUNCTIONS ---
-export const signInWithOtp = async ({ email }: { email: string }) => {
-  return await supabase.auth.signInWithOtp({
+export const signInWithPassword = async ({ email, password }: { email: string, password: string }) => {
+  return await supabase.auth.signInWithPassword({
     email,
+    password,
   });
 };
 
-export const verifyOtp = async ({ email, token, type }: { email: string, token: string, type: string }) => {
-  return await supabase.auth.verifyOtp({
+export const signUp = async ({ email, password }: { email: string, password: string }) => {
+  return await supabase.auth.signUp({
     email,
-    token,
-    type: type as any
+    password,
   });
 };
 

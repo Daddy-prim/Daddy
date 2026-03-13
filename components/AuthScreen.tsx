@@ -4,31 +4,24 @@ import { Logo } from './Logo';
 import { supabase, sendWelcomeEmail } from '../services/supabaseClient';
 
 export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 4>(1);
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [password, setPassword] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
   const [displayName, setDisplayName] = useState('');
   const [profilePic, setProfilePic] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [timer, setTimer] = useState(60);
 
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // Timer for OTP
-  useEffect(() => {
-    let interval: any;
-    if (step === 3 && timer > 0) {
-      interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
-    }
-    return () => clearInterval(interval);
-  }, [step, timer]);
-
-  const handleRequestOtp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email address');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
     
@@ -36,52 +29,37 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email,
-      });
-      
-      if (error) throw error;
-      
-      setStep(3);
-      setTimer(60);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (isLogin) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        
+        // Check if user already has a profile set up
+        const { data: profile } = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', data.user?.id)
+          .single();
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const otpString = otp.join('');
-    if (otpString.length !== 6) {
-      setError('Please enter a 6-digit code');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: otpString,
-        type: 'email'
-      });
-      
-      if (error) throw error;
-      
-      // Check if user already has a profile set up
-      const { data: profile } = await supabase
-        .from('users')
-        .select('full_name')
-        .eq('id', data.user?.id)
-        .single();
-
-      if (!profile?.full_name) {
-        setStep(4);
+        if (!profile?.full_name) {
+          setStep(4);
+        } else {
+          onAuthSuccess();
+        }
       } else {
-        onAuthSuccess();
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        
+        if (data.session) {
+          setStep(4);
+        } else {
+          setError('Please check your email to verify your account.');
+        }
       }
     } catch (err: any) {
       setError(err.message);
@@ -89,6 +67,8 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
       setLoading(false);
     }
   };
+
+
 
   const handleProfileSetup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,23 +109,7 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
     }
   };
 
-  const handleOtpChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
-    
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
 
-    if (value && index < 5) {
-      otpRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
-  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -225,13 +189,15 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
                  </div>
                )}
 
-               {/* SCREEN 2: Email Input */}
+               {/* SCREEN 2: Email & Password Input */}
                {step === 2 && (
-                 <form onSubmit={handleRequestOtp} className="space-y-8">
+                 <form onSubmit={handleAuth} className="space-y-8">
                    <div className="text-center mb-8">
-                     <h2 className="text-3xl font-bold text-nexus-midnight dark:text-white mb-3">Log in or sign up</h2>
+                     <h2 className="text-3xl font-bold text-nexus-midnight dark:text-white mb-3">
+                       {isLogin ? 'Welcome back' : 'Create an account'}
+                     </h2>
                      <p className="text-gray-500 dark:text-gray-400">
-                       Enter your email to continue. Daddy will send a secure 6-digit code to verify your account.
+                       {isLogin ? 'Enter your email and password to log in.' : 'Enter your email and create a password to sign up.'}
                      </p>
                    </div>
 
@@ -244,66 +210,38 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
                        className="w-full bg-gray-100 dark:bg-gray-800 text-nexus-midnight dark:text-white p-4 rounded-xl outline-none focus:ring-2 focus:ring-nexus-mint transition-all font-bold border-2 border-transparent text-lg"
                        placeholder="you@example.com"
                      />
+                     <input 
+                       type="password" 
+                       required
+                       value={password}
+                       onChange={(e) => setPassword(e.target.value)}
+                       className="w-full bg-gray-100 dark:bg-gray-800 text-nexus-midnight dark:text-white p-4 rounded-xl outline-none focus:ring-2 focus:ring-nexus-mint transition-all font-bold border-2 border-transparent text-lg"
+                       placeholder="Password (min. 6 characters)"
+                     />
                    </div>
 
                    <button 
                      type="submit" 
-                     disabled={loading || !email.includes('@')}
+                     disabled={loading || !email.includes('@') || password.length < 6}
                      className={`w-full py-4 text-white font-bold text-lg rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-all 
-                       ${loading || !email.includes('@') ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed' : 'bg-nexus-midnight dark:bg-nexus-mint dark:text-nexus-midnight hover:scale-[1.02] active:scale-95'}`}
+                       ${loading || !email.includes('@') || password.length < 6 ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed' : 'bg-nexus-midnight dark:bg-nexus-mint dark:text-nexus-midnight hover:scale-[1.02] active:scale-95'}`}
                    >
-                     {loading ? <Loader2 className="animate-spin" /> : 'Next'}
+                     {loading ? <Loader2 className="animate-spin" /> : (isLogin ? 'Log In' : 'Sign Up')}
                    </button>
+
+                   <div className="text-center mt-4">
+                     <button 
+                       type="button" 
+                       onClick={() => setIsLogin(!isLogin)}
+                       className="text-nexus-mint hover:underline font-medium"
+                     >
+                       {isLogin ? "Don't have an account? Sign up" : "Already have an account? Log in"}
+                     </button>
+                   </div>
                  </form>
                )}
 
-               {/* SCREEN 3: OTP Verification */}
-               {step === 3 && (
-                 <form onSubmit={handleVerifyOtp} className="space-y-8">
-                   <div className="text-center mb-8">
-                     <h2 className="text-3xl font-bold text-nexus-midnight dark:text-white mb-3">Verify your email</h2>
-                     <p className="text-gray-500 dark:text-gray-400">
-                       Enter the 6-digit code we sent to <br/>
-                       <span className="font-bold text-nexus-midnight dark:text-white">{email}</span>
-                     </p>
-                   </div>
 
-                   <div className="flex justify-between gap-2">
-                     {otp.map((digit, index) => (
-                       <input
-                         key={index}
-                         ref={(el) => (otpRefs.current[index] = el)}
-                         type="text"
-                         maxLength={1}
-                         value={digit}
-                         autoComplete="one-time-code"
-                         onChange={(e) => handleOtpChange(index, e.target.value)}
-                         onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                         className="w-12 h-14 text-center text-2xl font-bold bg-gray-100 dark:bg-gray-800 text-nexus-midnight dark:text-white rounded-xl outline-none focus:ring-2 focus:ring-nexus-mint border-2 border-transparent"
-                       />
-                     ))}
-                   </div>
-
-                   <div className="text-center text-sm font-medium text-gray-500">
-                     {timer > 0 ? (
-                       <p>Resend code in 0:{timer.toString().padStart(2, '0')}</p>
-                     ) : (
-                       <button type="button" onClick={() => handleRequestOtp()} className="text-nexus-mint hover:underline">
-                         Resend code
-                       </button>
-                     )}
-                   </div>
-
-                   <button 
-                     type="submit" 
-                     disabled={loading || otp.join('').length !== 6}
-                     className={`w-full py-4 text-white font-bold text-lg rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-all 
-                       ${loading || otp.join('').length !== 6 ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed' : 'bg-nexus-midnight dark:bg-nexus-mint dark:text-nexus-midnight hover:scale-[1.02] active:scale-95'}`}
-                   >
-                     {loading ? <Loader2 className="animate-spin" /> : 'Verify'}
-                   </button>
-                 </form>
-               )}
 
                {/* SCREEN 4: Profile Initialization */}
                {step === 4 && (
