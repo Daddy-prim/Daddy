@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, Loader2, ChevronLeft, Check, AlertCircle, Upload } from 'lucide-react';
 import { Logo } from './Logo';
-import { supabase } from '../services/supabaseClient';
+import { supabase, sendWelcomeEmail } from '../services/supabaseClient';
 
 export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -115,6 +115,11 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
         });
       
       if (error) throw error;
+      
+      // Send welcome email after successful profile setup
+      if (user.email) {
+        await sendWelcomeEmail(user.email, displayName);
+      }
       
       onAuthSuccess();
     } catch (err: any) {

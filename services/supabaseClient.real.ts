@@ -168,6 +168,7 @@ export const sendMessageToDb = async (
     .insert([newMessage])
     .select();
     
+  if (error) throw error;
   return { data, error };
 };
 
@@ -204,9 +205,29 @@ export const sendInvite = async (type: 'sms' | 'email', contact: string) => {
   return true;
 };
 
+export const sendWelcomeEmail = async (email: string, name: string) => {
+  // In a real app, this would call a Supabase Edge Function or an external API like Resend/SendGrid
+  console.log(`[Real Email Service] Sending Welcome Email to ${email}`);
+  
+  // Example of how it would look with an Edge Function:
+  // await supabase.functions.invoke('send-welcome-email', {
+  //   body: { email, name }
+  // });
+  
+  return { success: true };
+};
+
 export const createGhostUser = async (identifier: string) => {
   // In a real app, you'd create a placeholder user in the DB
-  return null;
+  const isEmail = identifier.includes('@');
+  return {
+    id: 'ghost_' + Date.now(),
+    email: isEmail ? identifier : '',
+    phone: !isEmail ? identifier : '',
+    full_name: isEmail ? identifier.split('@')[0] : identifier,
+    status: 'offline',
+    statusMessage: 'Invited to Prime'
+  };
 };
 
 export const createNewChat = async (currentUserId: string, participantIds: string[], chatName: string, isGroup: boolean) => {

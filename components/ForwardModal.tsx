@@ -71,9 +71,9 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ messageText, onClose
                  >
                    <div className="flex items-center gap-3 overflow-hidden">
                      <div className="w-10 h-10 rounded-full bg-nexus-primary/20 text-nexus-primary flex-shrink-0 flex items-center justify-center font-bold">
-                       {chat.name[0]}
+                       {chat.name ? chat.name[0].toUpperCase() : '?'}
                      </div>
-                     <span className="font-medium dark:text-white truncate">{chat.name}</span>
+                     <span className="font-medium dark:text-white truncate">{chat.name || 'Unknown Chat'}</span>
                    </div>
                    
                    <div className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all ${

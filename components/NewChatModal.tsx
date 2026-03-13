@@ -5,7 +5,7 @@ import { searchUsers, createNewChat, createGhostUser, sendInvite } from '../serv
 interface NewChatModalProps {
   currentUserId: string;
   onClose: () => void;
-  onChatCreated: () => void;
+  onChatCreated: (chatId?: string) => void;
 }
 
 type ModalStep = 'search' | 'group_participants' | 'group_details';
@@ -39,8 +39,8 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ currentUserId, onClo
     try {
       setLoading(true);
       // Pass isGroup = false
-      await createNewChat(currentUserId, [userId], userName, false);
-      onChatCreated();
+      const chat = await createNewChat(currentUserId, [userId], userName || 'Unknown User', false);
+      onChatCreated(chat.id);
       onClose();
     } catch (e) {
       console.error(e);
@@ -53,8 +53,8 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ currentUserId, onClo
     try {
       setLoading(true);
       const participantIds = selectedUsers.map(u => u.id);
-      await createNewChat(currentUserId, participantIds, groupName, true);
-      onChatCreated();
+      const chat = await createNewChat(currentUserId, participantIds, groupName, true);
+      onChatCreated(chat.id);
       onClose();
     } catch (e) {
       console.error(e);
@@ -68,13 +68,13 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ currentUserId, onClo
     
     // Create ghost user immediately so they can start chatting
     const newUser = await createGhostUser(query);
-    await createNewChat(currentUserId, [newUser.id], newUser.full_name, false);
+    const chat = await createNewChat(currentUserId, [newUser.id], newUser.full_name, false);
     
     setLoading(false);
     setInviteSent(true);
     
     setTimeout(() => {
-        onChatCreated();
+        onChatCreated(chat.id);
         onClose();
     }, 2000);
   };
@@ -146,7 +146,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ currentUserId, onClo
                 <div className="flex flex-wrap gap-2">
                    {selectedUsers.map(u => (
                      <div key={u.id} className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg dark:text-gray-300">
-                       {u.full_name}
+                       {u.full_name || 'Unknown'}
                      </div>
                    ))}
                 </div>
@@ -169,7 +169,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ currentUserId, onClo
                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                   {selectedUsers.map(user => (
                     <div key={user.id} className="flex items-center gap-2 bg-nexus-midnight text-white pl-3 pr-2 py-1.5 rounded-full text-sm flex-shrink-0 animate-fade-in-up">
-                      <span>{user.full_name}</span>
+                      <span>{user.full_name || 'Unknown'}</span>
                       <button 
                         onClick={() => toggleUserSelection(user)}
                         className="p-0.5 hover:bg-white/20 rounded-full"
@@ -240,7 +240,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ currentUserId, onClo
                         className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isSelected ? 'bg-nexus-mint/10 border border-nexus-mint' : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'}`}
                       >
                         <div className="w-10 h-10 rounded-full bg-nexus-midnight/10 text-nexus-midnight dark:bg-gray-700 dark:text-white flex items-center justify-center font-bold relative">
-                          {user.full_name[0]}
+                          {user.full_name ? user.full_name[0].toUpperCase() : '?'}
                           {isSelected && (
                              <div className="absolute -bottom-1 -right-1 bg-white dark:bg-nexus-card rounded-full">
                                 <CheckCircle size={16} className="text-nexus-mint fill-current" />
@@ -248,7 +248,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ currentUserId, onClo
                           )}
                         </div>
                         <div className="flex-1">
-                          <div className={`font-bold ${isSelected ? 'text-nexus-midnight dark:text-nexus-mint' : 'dark:text-white'}`}>{user.full_name}</div>
+                          <div className={`font-bold ${isSelected ? 'text-nexus-midnight dark:text-nexus-mint' : 'dark:text-white'}`}>{user.full_name || 'Unknown User'}</div>
                           <div className="text-xs text-gray-500">
                             {user.phone ? `${user.phone}` : user.email}
                           </div>

@@ -68,11 +68,11 @@ export const ChatInfoSidebar: React.FC<ChatInfoSidebarProps> = ({ chat, onClose,
         <div className="px-6 pt-4 pb-6 flex flex-col items-center border-b border-gray-100 dark:border-black bg-white dark:bg-[#1c1c1d]">
           <div className={`w-28 h-28 rounded-full flex items-center justify-center text-4xl font-bold shadow-sm mb-4 text-white relative
             ${chat.isGroup ? 'bg-gradient-to-br from-orange-400 to-pink-500' : 'bg-gradient-to-br from-blue-400 to-cyan-500'}`}>
-            {chat.name[0]}
+            {chat.name ? chat.name[0].toUpperCase() : '?'}
             <div className="absolute bottom-1 right-1 bg-green-500 w-5 h-5 rounded-full border-4 border-white dark:border-[#1c1c1d]"></div>
           </div>
           
-          <h3 className="text-xl font-bold text-black dark:text-white text-center mb-1">{chat.name}</h3>
+          <h3 className="text-xl font-bold text-black dark:text-white text-center mb-1">{chat.name || 'Unknown Chat'}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
              {chat.isGroup ? `${displayParticipants.length} members` : 'last seen recently'}
           </p>
@@ -111,7 +111,7 @@ export const ChatInfoSidebar: React.FC<ChatInfoSidebarProps> = ({ chat, onClose,
               <p className="text-gray-500 text-xs">Mobile</p>
            </div>
            <div className="py-3 hover:bg-gray-50 dark:hover:bg-[#2c2c2e] px-2 -mx-2 rounded-lg cursor-pointer transition-colors">
-              <p className="text-[#3390ec] text-[15px] mb-0.5">@{chat.name.toLowerCase().replace(/\s+/g, '')}</p>
+              <p className="text-[#3390ec] text-[15px] mb-0.5">@{(chat.name || 'unknown').toLowerCase().replace(/\s+/g, '')}</p>
               <p className="text-[#3390ec] text-[15px] mb-0.5">@lady</p>
               <p className="text-gray-500 text-xs mt-1">Username</p>
            </div>
@@ -132,7 +132,7 @@ export const ChatInfoSidebar: React.FC<ChatInfoSidebarProps> = ({ chat, onClose,
                   className="w-full py-3 bg-[#3390ec]/10 text-[#3390ec] hover:bg-[#3390ec]/20 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
                 >
                   <Plus size={20} />
-                  Create Group with {chat.name}
+                  Create Group with {chat.name || 'Unknown'}
                 </button>
               ) : (
                 <div className="animate-fade-in-up">
@@ -149,9 +149,9 @@ export const ChatInfoSidebar: React.FC<ChatInfoSidebarProps> = ({ chat, onClose,
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white font-bold">
-                            {contact.name[0]}
+                            {contact.name ? contact.name[0].toUpperCase() : '?'}
                           </div>
-                          <span className="text-black dark:text-white font-medium">{contact.name}</span>
+                          <span className="text-black dark:text-white font-medium">{contact.name || 'Unknown'}</span>
                         </div>
                         <div className="text-[#3390ec]">
                           {selectedContacts.includes(contact.id) ? <CheckSquare size={20} /> : <Square size={20} className="text-gray-300 dark:text-gray-600" />}

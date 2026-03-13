@@ -247,10 +247,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onBack, onSe
                 
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg ${chat.isGroup ? 'bg-gradient-to-br from-orange-400 to-pink-500' : 'bg-gradient-to-br from-blue-400 to-cyan-500'}`}>
-                    {chat.name[0]}
+                    {chat.name ? chat.name[0].toUpperCase() : '?'}
                   </div>
                   <div>
-                    <h3 className="font-bold text-[16px] text-black dark:text-white leading-tight">{chat.name}</h3>
+                    <h3 className="font-bold text-[16px] text-black dark:text-white leading-tight">{chat.name || 'Unknown Chat'}</h3>
                     <p className="text-[13px] text-gray-500 dark:text-gray-400">
                       {isSomeoneTyping ? <span className="text-[#3390ec]">typing...</span> : (chat.isGroup ? `${chat.participants?.length || 0} members` : 'last seen recently')}
                     </p>
@@ -316,7 +316,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onBack, onSe
                   {/* Avatar for Group */}
                   {!isMe && chat.isGroup && (
                     <div className={`w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold text-white mr-2 self-end mb-1 ${showAvatar ? 'opacity-100' : 'opacity-0'}`}>
-                      {chat.name[0]}
+                      {chat.name ? chat.name[0].toUpperCase() : '?'}
                     </div>
                   )}
                   
@@ -377,7 +377,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onBack, onSe
                  <Reply size={20} className="text-[#3390ec]" />
                  <div className="flex-1 min-w-0">
                    <div className="text-[#3390ec] font-bold text-sm truncate">
-                     {editingMessageState ? 'Edit Message' : `Reply to ${replyingTo?.senderId === 'me' ? 'You' : chat.name}`}
+                     {editingMessageState ? 'Edit Message' : `Reply to ${replyingTo?.senderId === 'me' ? 'You' : (chat.name || 'Unknown')}`}
                    </div>
                    <div className="text-gray-500 text-sm truncate">
                      {editingMessageState ? editingMessageState.text : replyingTo?.text}

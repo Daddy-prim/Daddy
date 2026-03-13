@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, Message, Chat, ActionItem, TabType, SortOption, CallSession } from './types';
 import { supabase, getCurrentUser, fetchUserChats, fetchMessages, sendMessageToDb, toggleChatPin, updateUserStatus, updateUserProfile } from './services/supabaseClient';
 import { ChatInterface } from './components/ChatInterface';
@@ -28,6 +28,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('priority');
   const [sortOption, setSortOption] = useState<SortOption>('time');
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const selectedChatIdRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    selectedChatIdRef.current = selectedChatId;
+  }, [selectedChatId]);
+
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -41,11 +47,7 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Ensure the splash screen shows for at least 1.5 seconds for a smooth app launch experience
-        const [user] = await Promise.all([
-          getCurrentUser(),
-          new Promise(resolve => setTimeout(resolve, 1500))
-        ]);
+        const user = await getCurrentUser();
         
         if (user) {
           setSession({ user });
@@ -145,12 +147,17 @@ export default function App() {
     };
 
     loadMsgs();
+  }, [selectedChatId, session]);
+
+  // 4. Global Realtime Subscription for all messages
+  useEffect(() => {
+    if (!session) return;
 
     // Subscribe to new messages (INSERT) and updates (UPDATE - for reactions)
     const channel = supabase
-      .channel(`chat:${selectedChatId}`)
+      .channel('global_messages')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'messages', filter: `chat_id=eq.${selectedChatId}` }, 
+        { event: '*', schema: 'public', table: 'messages' }, 
         (payload) => {
           
           if (payload.eventType === 'INSERT') {
@@ -168,22 +175,38 @@ export default function App() {
               status: newMsg.status
             };
 
-            setChats(prev => prev.map(c => {
-               if (c.id === selectedChatId) {
-                 return { ...c, messages: [...c.messages, formattedMsg] };
-               }
-               return c;
-            }));
+            setChats(prev => {
+              const chatExists = prev.some(c => c.id === newMsg.chat_id);
+              if (!chatExists) {
+                // If it's a new chat we don't have in state, reload chats
+                loadChats();
+                return prev;
+              }
+
+              return prev.map(c => {
+                if (c.id === newMsg.chat_id) {
+                  const isSelected = c.id === selectedChatIdRef.current;
+                  return { 
+                    ...c, 
+                    messages: [...c.messages, formattedMsg],
+                    unreadCount: isSelected ? 0 : (c.unreadCount || 0) + 1
+                  };
+                }
+                return c;
+              });
+            });
           } 
           else if (payload.eventType === 'UPDATE') {
              const updatedMsg = payload.new;
              setChats(prev => prev.map(c => {
-               if (c.id === selectedChatId) {
+               if (c.id === updatedMsg.chat_id) {
                  return {
                    ...c,
                    messages: c.messages.map(m => m.id === updatedMsg.id ? {
                      ...m,
-                     reactions: updatedMsg.reactions
+                     reactions: updatedMsg.reactions,
+                     text: updatedMsg.content,
+                     isDeleted: updatedMsg.is_deleted
                    } : m)
                  };
                }
@@ -197,7 +220,7 @@ export default function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedChatId, session]);
+  }, [session]);
 
   // Toggle Dark Mode and Persist
   const handleToggleDarkMode = async () => {
@@ -251,7 +274,20 @@ export default function App() {
     }));
 
     // Send to DB
-    await sendMessageToDb(selectedChatId, session.user.id, text, scheduledDate);
+    try {
+      await sendMessageToDb(selectedChatId, session.user.id, text, scheduledDate);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      // Rollback optimistic update
+      setChats(prev => prev.map(c => {
+        if (c.id === selectedChatId) {
+          return { ...c, messages: c.messages.filter(m => m.id !== tempId) };
+        }
+        return c;
+      }));
+      // Could also show a toast notification here
+      return;
+    }
 
     if (!scheduledDate) {
       const { detectActionItem } = await import('./services/geminiService');
@@ -323,7 +359,9 @@ export default function App() {
       } else if (sortOption === 'unread') {
          return (b.unreadCount || 0) - (a.unreadCount || 0);
       } else if (sortOption === 'alpha') {
-         return a.name.localeCompare(b.name);
+         const nameA = a.name || '';
+         const nameB = b.name || '';
+         return nameA.localeCompare(nameB);
       }
       return 0;
     });
@@ -365,9 +403,12 @@ export default function App() {
         <NewChatModal 
           currentUserId={session.user.id} 
           onClose={() => setShowNewChatModal(false)} 
-          onChatCreated={() => {
+          onChatCreated={(chatId) => {
             loadChats();
             setActiveTab('priority'); // Reset tab to see new chat usually
+            if (chatId) {
+              setSelectedChatId(chatId);
+            }
           }} 
         />
       )}
@@ -456,6 +497,7 @@ export default function App() {
                       onComplete={toggleActionComplete} 
                       onGoToChat={(chatId) => {
                         setSelectedChatId(chatId);
+                        setChats(prev => prev.map(c => c.id === chatId ? { ...c, unreadCount: 0 } : c));
                         setActiveTab('priority');
                       }} 
                     />
@@ -470,7 +512,10 @@ export default function App() {
                return (
                  <div
                    key={chat.id}
-                   onClick={() => setSelectedChatId(chat.id)}
+                   onClick={() => {
+                    setSelectedChatId(chat.id);
+                    setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
+                  }}
                    className={`group flex items-center gap-3 p-2 mx-2 rounded-xl cursor-pointer transition-colors ${
                      isSelected 
                        ? 'bg-[#3390ec] text-white' 
@@ -481,7 +526,7 @@ export default function App() {
                    <div className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-lg font-bold text-white relative ${
                      chat.isGroup ? 'bg-gradient-to-br from-orange-400 to-pink-500' : 'bg-gradient-to-br from-blue-400 to-cyan-500'
                    }`}>
-                     {chat.name[0]}
+                     {chat.name ? chat.name[0].toUpperCase() : '?'}
                      {chat.isGroup && (
                         <div className="absolute bottom-0 right-0 bg-white dark:bg-[#1c1c1d] rounded-full p-[2px]">
                           <div className="bg-green-500 w-3 h-3 rounded-full border-2 border-white dark:border-[#1c1c1d]"></div>
@@ -493,7 +538,7 @@ export default function App() {
                    <div className="flex-1 min-w-0 py-1">
                      <div className="flex justify-between items-baseline mb-0.5">
                        <h3 className={`font-semibold text-[15px] truncate ${isSelected ? 'text-white' : 'text-black dark:text-white'}`}>
-                         {chat.name}
+                         {chat.name || 'Unknown Chat'}
                        </h3>
                        <div className="flex items-center gap-1">
                          {lastMsg?.status === 'read' && lastMsg.senderId === 'me' && (
@@ -552,7 +597,7 @@ export default function App() {
                 isActive: true,
                 isIncoming: false,
                 isVideo,
-                partnerName: activeChat.name,
+                partnerName: activeChat.name || 'Unknown',
                 status: 'ringing',
                 isGroup: activeChat.isGroup,
                 participants: activeChat.participants

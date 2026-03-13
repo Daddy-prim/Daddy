@@ -49,6 +49,17 @@ export const sendLocalNotification = (title: string, body: string) => {
   }
 };
 
+export const sendWelcomeEmail = async (email: string, name: string) => {
+  await delay(500);
+  console.log(`[Mock Email Service] Sending Welcome Email to ${email}`);
+  console.log(`Subject: Welcome to Prime, ${name}!`);
+  console.log(`Body: Hi ${name},\n\nWelcome to Prime! We're excited to have you on board. Start chatting with your friends and colleagues today.\n\nBest,\nThe Prime Team`);
+  
+  // Simulate a local notification so the user sees it happened
+  sendLocalNotification('Email Sent', `Welcome email sent to ${email}`);
+  return { success: true };
+};
+
 // --- MOCK SUPABASE OBJECT ---
 export const supabase = {
   auth: {

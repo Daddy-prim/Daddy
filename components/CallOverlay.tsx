@@ -46,7 +46,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({ partnerName, isVideo, 
       <div className="fixed bottom-4 right-4 z-50 w-64 bg-nexus-midnight/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-4 flex items-center justify-between cursor-pointer animate-fade-in-up">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-nexus-midnight to-nexus-mint flex items-center justify-center text-white font-bold">
-            {partnerName[0]}
+            {partnerName ? partnerName[0].toUpperCase() : '?'}
           </div>
           <div>
             <div className="text-white text-sm font-bold truncate w-24">{partnerName}</div>
@@ -110,7 +110,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({ partnerName, isVideo, 
           <div className="w-full max-w-md h-full flex flex-col">
             <div className="flex flex-col items-center mb-8">
                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#3390ec] to-cyan-500 flex items-center justify-center text-5xl font-bold text-white mb-4 shadow-[0_0_30px_rgba(51,144,236,0.3)]">
-                 {partnerName[0]}
+                 {partnerName ? partnerName[0].toUpperCase() : '?'}
                </div>
                <div className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2">
                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
@@ -125,7 +125,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({ partnerName, isVideo, 
                   <div key={p.id || idx} className="flex items-center justify-between px-2 cursor-pointer hover:bg-white/5 rounded-xl p-2 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold">
-                        {p.name[0]}
+                        {p.name ? p.name[0].toUpperCase() : '?'}
                       </div>
                       <div>
                         <div className="text-white font-medium flex items-center gap-2">
@@ -173,7 +173,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({ partnerName, isVideo, 
                   </div>
                ) : (
                   <div className="w-full h-full rounded-full bg-[#1c1c1d] flex items-center justify-center text-6xl font-bold text-white">
-                    {partnerName[0]}
+                    {partnerName ? partnerName[0].toUpperCase() : '?'}
                   </div>
                )}
              </div>

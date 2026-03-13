@@ -168,7 +168,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
            {formData.avatar_url ? (
              <img src={formData.avatar_url} alt="Profile" className="w-full h-full object-cover" />
            ) : (
-             formData.full_name[0] || '?'
+             formData.full_name ? formData.full_name[0].toUpperCase() : '?'
            )}
         </div>
         <div className="flex-1">
@@ -241,7 +241,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {formData.avatar_url ? (
                 <img src={formData.avatar_url} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                formData.full_name[0] || '?'
+                formData.full_name ? formData.full_name[0].toUpperCase() : '?'
               )}
            </div>
            {/* File Input */}

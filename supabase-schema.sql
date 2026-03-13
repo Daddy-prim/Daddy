@@ -15,7 +15,7 @@ CREATE TABLE public.users (
 
 -- 2. Create chats table
 CREATE TABLE public.chats (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT,
   is_group BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -32,7 +32,7 @@ CREATE TABLE public.chat_participants (
 
 -- 4. Create messages table
 CREATE TABLE public.messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   chat_id UUID REFERENCES public.chats(id) ON DELETE CASCADE,
   sender_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   content TEXT,
