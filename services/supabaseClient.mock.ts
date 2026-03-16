@@ -116,6 +116,11 @@ export const supabase = {
       window.dispatchEvent(new Event('storage'));
       return { data: { user, session: { user } }, error: null };
     },
+    resend: async ({ type, email, phone }: any) => {
+      await delay(500);
+      console.log(`[Mock Supabase] Resending ${type} OTP to ${email || phone}...`);
+      return { data: { message: "OTP resent" }, error: null };
+    },
     signUp: async ({ email, password, options }: any) => {
       await delay(800);
       const users = getStore(USERS_KEY);

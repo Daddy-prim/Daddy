@@ -21,6 +21,14 @@ export const signUp = async ({ email, password }: { email: string, password: str
   });
 };
 
+export const verifyOtp = async ({ email, token, type }: { email: string, token: string, type: string }) => {
+  return await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: type as any
+  });
+};
+
 // --- BROWSER NOTIFICATIONS ---
 export const requestNotificationPermission = async () => {
   if (!("Notification" in window)) return false;

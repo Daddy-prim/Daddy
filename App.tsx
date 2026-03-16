@@ -50,18 +50,18 @@ export default function App() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-          setSession(session);
-          setCurrentUser(session.user);
+          const { data: userProfile } = await supabase.from('users').select('*').eq('id', session.user.id).single();
           
-          // Fetch profile in background to not block initial render
-          supabase.from('users').select('*').eq('id', session.user.id).single().then(({ data: userProfile }) => {
-            if (userProfile) {
-              setCurrentUser(userProfile);
-              if (userProfile.preferences?.theme === 'dark') {
-                setDarkMode(true);
-              }
+          if (userProfile && userProfile.full_name) {
+            setSession(session);
+            setCurrentUser(userProfile);
+            if (userProfile.preferences?.theme === 'dark') {
+              setDarkMode(true);
             }
-          });
+          } else {
+            // If they don't have a profile, we don't set session yet.
+            // AuthScreen will handle the profile setup.
+          }
         }
       } catch (e) {
         console.error('Failed to load user', e);
@@ -74,10 +74,12 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        setSession(session);
-        setCurrentUser(session.user);
+        // Only set session if the user has a profile, otherwise let AuthScreen handle it
         const user = await getCurrentUser();
-        if (user) setCurrentUser(user);
+        if (user && user.full_name) {
+          setSession(session);
+          setCurrentUser(user);
+        }
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         setCurrentUser(null);
@@ -394,10 +396,10 @@ export default function App() {
   }
 
   if (!session) {
-    return <AuthScreen onAuthSuccess={async () => {
+    return <AuthScreen onAuthSuccess={async (newSession) => {
       const user = await getCurrentUser();
       if (user) {
-        setSession({ user });
+        setSession(newSession || { user });
         setCurrentUser(user);
         loadChats();
       }

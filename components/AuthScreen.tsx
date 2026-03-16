@@ -3,16 +3,50 @@ import { ArrowRight, Loader2, ChevronLeft, Check, AlertCircle, Upload } from 'lu
 import { Logo } from './Logo';
 import { supabase, sendWelcomeEmail } from '../services/supabaseClient';
 
-export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => {
-  const [step, setStep] = useState<1 | 2 | 4>(1);
+export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: (session?: any) => void }) => {
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [displayName, setDisplayName] = useState('');
   const [profilePic, setProfilePic] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timer, setTimer] = useState(60);
+
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Check for existing session without profile
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (!profile?.full_name) {
+          setStep(4);
+        } else {
+          onAuthSuccess(session);
+        }
+      }
+    };
+    checkExistingSession();
+  }, []);
+
+  // Timer for OTP
+  useEffect(() => {
+    let interval: any;
+    if (step === 3 && timer > 0) {
+      interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [step, timer]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +80,7 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
         if (!profile?.full_name) {
           setStep(4);
         } else {
-          onAuthSuccess();
+          onAuthSuccess(data.session);
         }
       } else {
         const { data, error } = await supabase.auth.signUp({
@@ -58,13 +92,62 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
         if (data.session) {
           setStep(4);
         } else {
-          setError('Please check your email to verify your account.');
+          setStep(3);
+          setTimer(60);
         }
       }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const otpString = otp.join('');
+    if (otpString.length !== 6) {
+      setError('Please enter a 6-digit code');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otpString,
+        type: 'signup'
+      });
+      
+      if (error) throw error;
+      
+      if (data.session) {
+        setStep(4);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
     }
   };
 
@@ -101,7 +184,8 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
         await sendWelcomeEmail(user.email, displayName);
       }
       
-      onAuthSuccess();
+      const { data: { session } } = await supabase.auth.getSession();
+      onAuthSuccess(session);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -241,7 +325,59 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: () => void }) => 
                  </form>
                )}
 
+               {/* SCREEN 3: OTP Verification */}
+               {step === 3 && (
+                 <form onSubmit={handleVerifyOtp} className="space-y-8">
+                   <div className="text-center mb-8">
+                     <h2 className="text-3xl font-bold text-nexus-midnight dark:text-white mb-3">Verify your email</h2>
+                     <p className="text-gray-500 dark:text-gray-400">
+                       Enter the 6-digit code we sent to <br/>
+                       <span className="font-bold text-nexus-midnight dark:text-white">{email}</span>
+                     </p>
+                   </div>
 
+                   <div className="flex justify-between gap-2">
+                     {otp.map((digit, index) => (
+                       <input
+                         key={index}
+                         ref={(el) => (otpRefs.current[index] = el)}
+                         type="text"
+                         maxLength={1}
+                         value={digit}
+                         autoComplete="one-time-code"
+                         onChange={(e) => handleOtpChange(index, e.target.value)}
+                         onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                         className="w-12 h-14 text-center text-2xl font-bold bg-gray-100 dark:bg-gray-800 text-nexus-midnight dark:text-white rounded-xl outline-none focus:ring-2 focus:ring-nexus-mint border-2 border-transparent"
+                       />
+                     ))}
+                   </div>
+
+                   <div className="text-center text-sm font-medium text-gray-500">
+                     {timer > 0 ? (
+                       <p>Resend code in 0:{timer.toString().padStart(2, '0')}</p>
+                     ) : (
+                       <button type="button" onClick={() => {
+                         setLoading(true);
+                         supabase.auth.resend({ type: 'signup', email }).finally(() => {
+                           setLoading(false);
+                           setTimer(60);
+                         });
+                       }} className="text-nexus-mint hover:underline">
+                         Resend code
+                       </button>
+                     )}
+                   </div>
+
+                   <button 
+                     type="submit" 
+                     disabled={loading || otp.join('').length !== 6}
+                     className={`w-full py-4 text-white font-bold text-lg rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-all 
+                       ${loading || otp.join('').length !== 6 ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed' : 'bg-nexus-midnight dark:bg-nexus-mint dark:text-nexus-midnight hover:scale-[1.02] active:scale-95'}`}
+                   >
+                     {loading ? <Loader2 className="animate-spin" /> : 'Verify'}
+                   </button>
+                 </form>
+               )}
 
                {/* SCREEN 4: Profile Initialization */}
                {step === 4 && (

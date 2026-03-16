@@ -42,10 +42,6 @@ const otpLimiter = rateLimit({
   message: { error: 'Too many OTP requests from this IP, please try again after 15 minutes' },
   standardHeaders: true,
   legacyHeaders: false,
-  // Use the Forwarded header or X-Forwarded-For to identify the user
-  keyGenerator: (req) => {
-    return req.headers['x-forwarded-for'] as string || req.headers['forwarded'] as string || req.ip || 'unknown';
-  }
 });
 
 // --- API Routes ---
