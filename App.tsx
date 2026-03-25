@@ -40,8 +40,15 @@ export default function App() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   
   const [chats, setChats] = useState<Chat[]>([]);
+  const chatsRef = useRef<Chat[]>([]);
+  useEffect(() => {
+    chatsRef.current = chats;
+  }, [chats]);
+
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [activeCall, setActiveCall] = useState<CallSession | null>(null);
+  
+  const ignoredChatIds = useRef<Set<string>>(new Set());
 
   // 1. Auth Initialization
   useEffect(() => {
@@ -50,7 +57,7 @@ export default function App() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-          const { data: userProfile } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+          const userProfile = await getCurrentUser();
           
           if (userProfile && userProfile.full_name) {
             setSession(session);
@@ -92,9 +99,10 @@ export default function App() {
   }, []);
 
   // 2. Load User Data (Chats)
-  const loadChats = async () => {
-    if (!session?.user) return;
-    const myChats = await fetchUserChats(session.user.id);
+  const loadChats = async (userId?: string) => {
+    const id = userId || session?.user?.id;
+    if (!id) return;
+    const myChats = await fetchUserChats(id);
     if (myChats.length === 0) {
       // Add a mock group chat for demonstration
       setChats([{
@@ -124,7 +132,19 @@ export default function App() {
         ]
       }]);
     } else {
-      setChats(myChats);
+      setChats(prev => {
+        return myChats.map(newChat => {
+          const existingChat = prev.find(c => c.id === newChat.id);
+          if (existingChat) {
+            return { 
+              ...newChat, 
+              messages: existingChat.messages, 
+              unreadCount: existingChat.unreadCount 
+            };
+          }
+          return newChat;
+        });
+      });
     }
   };
 
@@ -172,11 +192,30 @@ export default function App() {
           
           if (payload.eventType === 'INSERT') {
             const newMsg = payload.new;
-            if (newMsg.sender_id === session.user.id) return; // Skip own inserts if handled optimistically
+
+            const chatExists = chatsRef.current.some(c => c.id === newMsg.chat_id);
+            if (!chatExists) {
+              // If it's a new chat we don't have in state, check if we are a participant
+              if (!ignoredChatIds.current.has(newMsg.chat_id)) {
+                supabase.from('chat_participants')
+                  .select('chat_id')
+                  .eq('chat_id', newMsg.chat_id)
+                  .eq('user_id', session.user.id)
+                  .single()
+                  .then(({ data }) => {
+                    if (data) {
+                      loadChats();
+                    } else {
+                      ignoredChatIds.current.add(newMsg.chat_id);
+                    }
+                  });
+              }
+              return;
+            }
 
             const formattedMsg: Message = {
               id: newMsg.id,
-              senderId: newMsg.sender_id,
+              senderId: newMsg.sender_id === session.user.id ? 'me' : newMsg.sender_id,
               text: newMsg.content,
               timestamp: new Date(newMsg.created_at),
               isActionItem: newMsg.is_action_item,
@@ -186,15 +225,13 @@ export default function App() {
             };
 
             setChats(prev => {
-              const chatExists = prev.some(c => c.id === newMsg.chat_id);
-              if (!chatExists) {
-                // If it's a new chat we don't have in state, reload chats
-                loadChats();
-                return prev;
-              }
-
               return prev.map(c => {
                 if (c.id === newMsg.chat_id) {
+                  // Don't add if we already have it (optimistic update check)
+                  if (c.messages.some(m => m.id === newMsg.id || (m.text === newMsg.content && m.senderId === 'me' && new Date(m.timestamp).getTime() > Date.now() - 5000))) {
+                    return c;
+                  }
+                  
                   const isSelected = c.id === selectedChatIdRef.current;
                   return { 
                     ...c, 
@@ -223,6 +260,12 @@ export default function App() {
                return c;
              }));
           }
+        }
+      )
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_participants', filter: `user_id=eq.${session.user.id}` },
+        () => {
+          loadChats();
         }
       )
       .subscribe();
@@ -396,12 +439,17 @@ export default function App() {
   }
 
   if (!session) {
-    return <AuthScreen onAuthSuccess={async (newSession) => {
-      const user = await getCurrentUser();
-      if (user) {
-        setSession(newSession || { user });
-        setCurrentUser(user);
-        loadChats();
+    return <AuthScreen onAuthSuccess={async (newSession, userProfile) => {
+      try {
+        const user = userProfile || await getCurrentUser();
+        if (user) {
+          setSession(newSession || { user });
+          setCurrentUser(user);
+        } else {
+          console.error("User profile not found after auth success");
+        }
+      } catch (err) {
+        console.error("Error fetching user profile:", err);
       }
     }} />;
   }

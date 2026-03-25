@@ -247,12 +247,13 @@ export const createNewChat = async (currentUserId: string, participantIds: strin
     
   if (chatError || !chat) throw chatError;
   
-  const participants = [
-    { chat_id: chat.id, user_id: currentUserId },
-    ...participantIds.map(id => ({ chat_id: chat.id, user_id: id }))
-  ];
+  // Insert current user first to satisfy RLS for adding other participants
+  await supabase.from('chat_participants').insert([{ chat_id: chat.id, user_id: currentUserId }]);
   
-  await supabase.from('chat_participants').insert(participants);
+  const otherParticipants = participantIds.map(id => ({ chat_id: chat.id, user_id: id }));
+  if (otherParticipants.length > 0) {
+    await supabase.from('chat_participants').insert(otherParticipants);
+  }
   
   if (isGroup) {
     await supabase.from('messages').insert([{
@@ -294,8 +295,7 @@ export const updateUserStatus = async (userId: string, status: string, message: 
 export const updateUserProfile = async (userId: string, updates: any) => {
   const { data, error } = await supabase
     .from('users')
-    .update(updates)
-    .eq('id', userId)
+    .upsert({ id: userId, ...updates })
     .select()
     .single();
     
@@ -304,13 +304,28 @@ export const updateUserProfile = async (userId: string, updates: any) => {
 };
 
 // --- TYPING INDICATOR REALTIME HELPERS ---
-export const sendTypingEvent = (chatId: string, userId: string, isTyping: boolean) => {
-  const channel = supabase.channel(`typing:${chatId}`);
-  channel.send({
-    type: 'broadcast',
-    event: 'typing',
-    payload: { userId, isTyping }
-  });
+export const sendTypingEvent = async (chatId: string, userId: string, isTyping: boolean) => {
+  const topic = `typing:${chatId}`;
+  let channel = supabase.getChannels().find(c => c.topic.endsWith(topic));
+  
+  if (!channel) {
+    channel = supabase.channel(topic);
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel?.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: { userId, isTyping }
+        });
+      }
+    });
+  } else {
+    channel.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId, isTyping }
+    });
+  }
 };
 
 export const subscribeToTypingEvents = (chatId: string, callback: (userId: string, isTyping: boolean) => void) => {

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, Loader2, ChevronLeft, Check, AlertCircle, Upload } from 'lucide-react';
 import { Logo } from './Logo';
-import { supabase, sendWelcomeEmail } from '../services/supabaseClient';
+import { supabase, sendWelcomeEmail, updateUserProfile, getCurrentUser } from '../services/supabaseClient';
 
-export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: (session?: any) => void }) => {
+export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: (session?: any, userProfile?: any) => void }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,16 +23,12 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: (session?: any) =
     const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('full_name')
-          .eq('id', session.user.id)
-          .single();
+        const profile = await getCurrentUser();
           
         if (!profile?.full_name) {
           setStep(4);
         } else {
-          onAuthSuccess(session);
+          onAuthSuccess(session, profile);
         }
       }
     };
@@ -48,15 +44,32 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: (session?: any) =
     return () => clearInterval(interval);
   }, [step, timer]);
 
+  const passwordRequirements = [
+    { id: 'length', label: '6+ Characters', test: (p: string) => p.length >= 6 },
+    { id: 'uppercase', label: 'Uppercase', test: (p: string) => /[A-Z]/.test(p) },
+    { id: 'number', label: 'Number', test: (p: string) => /[0-9]/.test(p) },
+    { id: 'special', label: 'Special Char', test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+  ];
+
+  const passwordStrength = passwordRequirements.filter(r => r.test(password)).length;
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email address');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
+    if (isLogin) {
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters');
+        return;
+      }
+    } else {
+      const unmet = passwordRequirements.filter(r => !r.test(password));
+      if (unmet.length > 0) {
+        setError(`Password requirements not met: ${unmet[0].label}`);
+        return;
+      }
     }
     
     setLoading(true);
@@ -71,16 +84,12 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: (session?: any) =
         if (error) throw error;
         
         // Check if user already has a profile set up
-        const { data: profile } = await supabase
-          .from('users')
-          .select('full_name')
-          .eq('id', data.user?.id)
-          .single();
+        const profile = await getCurrentUser();
 
         if (!profile?.full_name) {
           setStep(4);
         } else {
-          onAuthSuccess(data.session);
+          onAuthSuccess(data.session, profile);
         }
       } else {
         const { data, error } = await supabase.auth.signUp({
@@ -164,28 +173,23 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: (session?: any) =
     setError(null);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("No user found");
 
       // Update the users table
-      const { error } = await supabase
-        .from('users')
-        .upsert({ 
-          id: user.id,
-          email: user.email,
-          full_name: displayName,
-          avatar: profilePic
-        });
+      const updatedUser = await updateUserProfile(user.id, {
+        email: user.email,
+        full_name: displayName,
+        avatar: profilePic
+      });
       
-      if (error) throw error;
-      
-      // Send welcome email after successful profile setup
+      // Send welcome email after successful profile setup in background
       if (user.email) {
-        await sendWelcomeEmail(user.email, displayName);
+        sendWelcomeEmail(user.email, displayName).catch(console.error);
       }
       
-      const { data: { session } } = await supabase.auth.getSession();
-      onAuthSuccess(session);
+      onAuthSuccess(session, updatedUser);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -199,8 +203,36 @@ export const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: (session?: any) =
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePic(reader.result as string);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 200;
+          const MAX_HEIGHT = 200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          setProfilePic(dataUrl);
+        };
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }

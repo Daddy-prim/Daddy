@@ -4,6 +4,7 @@ import { createServer as createViteServer } from 'vite';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 
 const app = express();
 const PORT = 3000;
@@ -201,7 +202,11 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static('dist'));
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*all', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

@@ -47,25 +47,45 @@ CREATE TABLE public.messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 4.5 Create indexes for foreign keys to improve performance
+CREATE INDEX IF NOT EXISTS idx_chat_participants_user_id ON public.chat_participants(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON public.messages(chat_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON public.messages(sender_id);
+
 -- 5. Enable Realtime for messages
 alter publication supabase_realtime add table messages;
 
 -- 6. Set up Row Level Security (RLS)
--- For testing/development, we'll use permissive policies.
--- IN PRODUCTION, you should restrict these to only allow users to read/write their own chats.
+-- Secure policies to only allow users to read/write their own chats.
 
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all authenticated users to read users" ON public.users FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow users to update their own profile" ON public.users FOR UPDATE TO authenticated USING (auth.uid() = id);
 
 ALTER TABLE public.chats ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all authenticated users to access chats" ON public.chats FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow users to access their chats" ON public.chats FOR ALL TO authenticated USING (
+  EXISTS (
+    SELECT 1 FROM public.chat_participants
+    WHERE chat_id = id AND user_id = auth.uid()
+  )
+);
 
 ALTER TABLE public.chat_participants ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all authenticated users to access participants" ON public.chat_participants FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow users to access their participations" ON public.chat_participants FOR ALL TO authenticated USING (
+  user_id = auth.uid() OR
+  EXISTS (
+    SELECT 1 FROM public.chat_participants cp
+    WHERE cp.chat_id = chat_id AND cp.user_id = auth.uid()
+  )
+);
 
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all authenticated users to access messages" ON public.messages FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow users to access messages in their chats" ON public.messages FOR ALL TO authenticated USING (
+  EXISTS (
+    SELECT 1 FROM public.chat_participants
+    WHERE chat_id = messages.chat_id AND user_id = auth.uid()
+  )
+);
 
 -- 7. Trigger to automatically create a user profile when a new auth user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
